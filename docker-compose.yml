@@ -1,0 +1,88 @@
+version: '3.8'
+services:
+
+  postgres:
+    image: postgres:15
+    container_name: notes-postgres
+    environment:
+      POSTGRES_DB: notedb
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: A@077068
+    ports:
+      - "5432:5432"  
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    network_mode: host
+
+  
+  keycloak:
+    image: quay.io/keycloak/keycloak:23.0.0
+    container_name: notes-keycloak
+    environment:
+      KEYCLOAK_ADMIN: admin
+      KEYCLOAK_ADMIN_PASSWORD: admin123
+      KC_SPI_IMPORT_STRATEGY: OVERWRITE_EXISTING
+      KC_HOSTNAME_STRICT: "false"  
+      KC_HOSTNAME_STRICT_HTTPS: "false"
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./keycloack/realm-export:/opt/keycloak/data/import:ro
+    command: start-dev --import-realm
+    network_mode: host  
+
+ 
+  backend:
+    build: ./backend/demo
+    container_name: notes-backend
+    environment:
+      
+      SPRING_DATASOURCE_URL: jdbc:postgresql://localhost:5432/notedb
+      SPRING_DATASOURCE_USERNAME: postgres
+      SPRING_DATASOURCE_PASSWORD: A@077068
+      SPRING_DATASOURCE_DRIVER_CLASS_NAME: org.postgresql.Driver
+      
+      
+      SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_ISSUER_URI: http://localhost:8080/realms/bitamer-realm
+      SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_JWK_SET_URI: http://localhost:8080/realms/bitamer-realm/protocol/openid-connect/certs
+      SPRING_SECURITY_OAUTH2_CLIENT_PROVIDER_KEYCLOAK_ISSUER_URI: http://localhost:8080/realms/bitamer-realm
+      SPRING_SECURITY_OAUTH2_CLIENT_PROVIDER_KEYCLOAK_TOKEN_URI: http://localhost:8080/realms/bitamer-realm/protocol/openid-connect/token
+      SPRING_SECURITY_OAUTH2_CLIENT_PROVIDER_KEYCLOAK_USER_INFO_URI: http://localhost:8080/realms/bitamer-realm/protocol/openid-connect/userinfo
+      SPRING_SECURITY_OAUTH2_CLIENT_PROVIDER_KEYCLOAK_JWK_SET_URI: http://localhost:8080/realms/bitamer-realm/protocol/openid-connect/certs
+      SPRING_SECURITY_OAUTH2_CLIENT_PROVIDER_KEYCLOAK_AUTHORIZATION_URI: http://localhost:8080/realms/bitamer-realm/protocol/openid-connect/auth
+      
+      
+      SPRING_SECURITY_OAUTH2_CLIENT_REGISTRATION_KEYCLOAK_REDIRECT_URI: http://localhost:8081/login/oauth2/code/keycloak
+      SPRING_SECURITY_OAUTH2_CLIENT_REGISTRATION_KEYCLOAK_CLIENT_ID: spring-boot-app
+      SPRING_SECURITY_OAUTH2_CLIENT_REGISTRATION_KEYCLOAK_SCOPE: openid,profile,email
+      
+      
+      APP_KEYCLOAK_BASE_URL: http://localhost:8080
+      APP_KEYCLOAK_REALM: bitamer-realm
+      APP_FRONTEND_URL: http://localhost:5173
+      APP_BACKEND_URL: http://localhost:8081
+      APP_CLIENT_ID: spring-boot-app
+    ports:
+      - "8081:8081"
+    command: sh -c "sleep 40 && java -jar /app/target/demo-0.0.1-SNAPSHOT.jar"
+    depends_on:
+      - postgres
+      - keycloak
+    network_mode: host  
+
+  
+  frontend:
+    build: ./frontend
+    container_name: notes-frontend
+    ports:
+      - "5173:5173"
+    depends_on:
+      - backend
+    network_mode: host 
+    environment:
+      - VITE_API_URL=http://localhost:8081
+      - VITE_KEYCLOAK_URL=http://localhost:8080
+
+volumes:
+  postgres_data:
+
