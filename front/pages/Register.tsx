@@ -5,10 +5,12 @@ import { motion } from 'framer-motion';
 import toast from 'react-hot-toast';
 import Input from '../components/Input';
 import Button from '../components/Button';
-import { StorageService } from '../services/storage';
-import { UserRole } from '../types';
+
+const API_BASE_URL = 'http://localhost:8081';
 
 const Register: React.FC = () => {
+  const [firstName, setFirstName] = useState('');
+  const [lastName, setLastName] = useState('');
   const [username, setUsername] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -25,36 +27,43 @@ const Register: React.FC = () => {
     }
 
     if (password.length < 6) {
-        toast.error("Le mot de passe doit faire au moins 6 caractères.");
-        return;
+      toast.error("Le mot de passe doit faire au moins 6 caractères.");
+      return;
     }
 
     setLoading(true);
 
-    // Simulate network
-    await new Promise(resolve => setTimeout(resolve, 800));
-
     try {
-        const users = StorageService.getUsers();
-        if (users.find(u => u.email === email)) {
-            throw new Error("Cet email est déjà utilisé.");
-        }
+      const response = await fetch(`${API_BASE_URL}/auth/register`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          username,
+          email,
+          password,
+          firstName,
+          lastName,
+        }),
+      });
 
-        StorageService.addUser({
-            username,
-            email,
-            password,
-            role: UserRole.USER
-        });
+      const data = await response.json();
 
-        // Auto login after register
-        StorageService.login(email, password);
-        toast.success("Compte créé avec succès !");
-        navigate('/notes');
+      if (!response.ok) {
+        throw new Error(data.error || "Erreur lors de l'inscription");
+      }
+
+      // Save token and user info
+      localStorage.setItem('token', data.token);
+      localStorage.setItem('user', JSON.stringify(data));
+
+      toast.success("Compte créé avec succès !");
+      navigate('/notes');
     } catch (err: any) {
-        toast.error(err.message || "Une erreur est survenue.");
+      toast.error(err.message || "Une erreur est survenue.");
     } finally {
-        setLoading(false);
+      setLoading(false);
     }
   };
 
@@ -87,6 +96,30 @@ const Register: React.FC = () => {
       >
         <div className="bg-white py-8 px-4 shadow-xl shadow-indigo-100/50 sm:rounded-2xl sm:px-10 border border-gray-100">
           <form className="space-y-5" onSubmit={handleSubmit}>
+            <div className="grid grid-cols-2 gap-4">
+              <Input
+                id="firstName"
+                type="text"
+                label="Prénom"
+                value={firstName}
+                onChange={(e) => setFirstName(e.target.value)}
+                required
+                icon={<User className="w-5 h-5" />}
+                placeholder="Jean"
+              />
+
+              <Input
+                id="lastName"
+                type="text"
+                label="Nom"
+                value={lastName}
+                onChange={(e) => setLastName(e.target.value)}
+                required
+                icon={<User className="w-5 h-5" />}
+                placeholder="Dupont"
+              />
+            </div>
+
             <Input
               id="username"
               type="text"
@@ -95,7 +128,7 @@ const Register: React.FC = () => {
               onChange={(e) => setUsername(e.target.value)}
               required
               icon={<User className="w-5 h-5" />}
-              placeholder="Jean Dupont"
+              placeholder="jeandupont"
             />
 
             <Input
@@ -110,7 +143,7 @@ const Register: React.FC = () => {
             />
 
             <div className="grid grid-cols-1 gap-5">
-                <Input
+              <Input
                 id="password"
                 type="password"
                 label="Mot de passe"
@@ -119,9 +152,9 @@ const Register: React.FC = () => {
                 required
                 icon={<Lock className="w-5 h-5" />}
                 placeholder="••••••••"
-                />
+              />
 
-                <Input
+              <Input
                 id="confirmPassword"
                 type="password"
                 label="Confirmer"
@@ -130,7 +163,7 @@ const Register: React.FC = () => {
                 required
                 icon={<Lock className="w-5 h-5" />}
                 placeholder="••••••••"
-                />
+              />
             </div>
 
             <div className="pt-2">
