@@ -1,8 +1,10 @@
 package com.note.demo.service;
 
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.security.oauth2.jwt.Jwt;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
+import com.note.demo.dto.RegisterRequest;
+import com.note.demo.dto.UpdateProfileRequest;
 import com.note.demo.model.Users;
 import com.note.demo.repository.UserRepository;
 import java.time.LocalDateTime;
@@ -13,53 +15,92 @@ public class UserService {
     @Autowired
     private UserRepository userRepository;
     
-    public Users syncUserFromJwt(Jwt jwt) {
-        String keycloakId = jwt.getClaimAsString("sub");
-        String username = jwt.getClaimAsString("preferred_username");
-        String email = jwt.getClaimAsString("email");
-        String firstName = jwt.getClaimAsString("given_name");
-        String lastName = jwt.getClaimAsString("family_name");
+    @Autowired
+    private PasswordEncoder passwordEncoder;
+    
+    public Users register(RegisterRequest request) {
+        if (userRepository.findByUsername(request.getUsername()).isPresent()) {
+            throw new RuntimeException("Username already exists");
+        }
+        if (userRepository.findByEmail(request.getEmail()).isPresent()) {
+            throw new RuntimeException("Email already exists");
+        }
         
-        Users user = userRepository.findByKeycloakId(keycloakId)
-                .orElse(new Users(keycloakId, username, email));
+        Users user = new Users(
+            request.getUsername(),
+            request.getEmail(),
+            passwordEncoder.encode(request.getPassword())
+        );
+        user.setFirstName(request.getFirstName());
+        user.setLastName(request.getLastName());
+        user.setCreatedAt(LocalDateTime.now());
         
-        user.setUsername(username);
-        user.setEmail(email);
-        user.setFirstName(firstName);
-        user.setLastName(lastName);
-        user.setLastLogin(LocalDateTime.now());
+        return userRepository.save(user);
+    }
+    
+    public Users findByUsername(String username) {
+        return userRepository.findByUsername(username).orElse(null);
+    }
+    
+    public Users findByEmail(String email) {
+        return userRepository.findByEmail(email).orElse(null);
+    }
+    
+    public Users findById(Long id) {
+        return userRepository.findById(id).orElse(null);
+    }
+    
+    public Users updateProfile(String username, UpdateProfileRequest request) {
+        Users user = userRepository.findByUsername(username)
+            .orElseThrow(() -> new RuntimeException("User not found"));
         
-        if (user.getCreatedAt() == null) {
-            user.setCreatedAt(LocalDateTime.now());
+        // Check if username is being changed and if it's already taken
+        if (request.getUsername() != null && !request.getUsername().equals(user.getUsername())) {
+            if (userRepository.findByUsername(request.getUsername()).isPresent()) {
+                throw new RuntimeException("Username already exists");
+            }
+            user.setUsername(request.getUsername());
+        }
+        
+        // Check if email is being changed and if it's already taken
+        if (request.getEmail() != null && !request.getEmail().equals(user.getEmail())) {
+            if (userRepository.findByEmail(request.getEmail()).isPresent()) {
+                throw new RuntimeException("Email already exists");
+            }
+            user.setEmail(request.getEmail());
+        }
+        
+        if (request.getFirstName() != null) {
+            user.setFirstName(request.getFirstName());
+        }
+        
+        if (request.getLastName() != null) {
+            user.setLastName(request.getLastName());
+        }
+        
+        // Update password if provided
+        if (request.getNewPassword() != null && !request.getNewPassword().isEmpty()) {
+            if (request.getCurrentPassword() == null || 
+                !passwordEncoder.matches(request.getCurrentPassword(), user.getPassword())) {
+                throw new RuntimeException("Current password is incorrect");
+            }
+            user.setPassword(passwordEncoder.encode(request.getNewPassword()));
         }
         
         return userRepository.save(user);
     }
     
-    public Users syncUserFromOAuth2(org.springframework.security.oauth2.core.user.OAuth2User oauth2User) {
-        String keycloakId = oauth2User.getAttribute("sub");
-        String username = oauth2User.getAttribute("preferred_username");
-        String email = oauth2User.getAttribute("email");
-        String firstName = oauth2User.getAttribute("given_name");
-        String lastName = oauth2User.getAttribute("family_name");
-        
-        Users user = userRepository.findByKeycloakId(keycloakId)
-                .orElse(new Users(keycloakId, username, email));
-        
-        user.setUsername(username);
-        user.setEmail(email);
-        user.setFirstName(firstName);
-        user.setLastName(lastName);
-        user.setLastLogin(LocalDateTime.now());
-        
-        if (user.getCreatedAt() == null) {
-            user.setCreatedAt(LocalDateTime.now());
-        }
-        
-        return userRepository.save(user);
+    public void deleteUser(String username) {
+        Users user = userRepository.findByUsername(username)
+            .orElseThrow(() -> new RuntimeException("User not found"));
+        userRepository.delete(user);
     }
     
-    public Users findByKeycloakId(String keycloakId) {
-        return userRepository.findByKeycloakId(keycloakId).orElse(null);
+    public void updateLastLogin(String username) {
+        Users user = userRepository.findByUsername(username).orElse(null);
+        if (user != null) {
+            user.setLastLogin(LocalDateTime.now());
+            userRepository.save(user);
+        }
     }
 }

@@ -5,7 +5,7 @@ package com.note.demo.controller;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
-import org.springframework.security.oauth2.jwt.Jwt;
+// import org.springframework.security.oauth2.jwt.Jwt;
 
 @RestController
 public class TestController {
@@ -15,8 +15,8 @@ public class TestController {
         return "This is a public endpoint - no authentication required";
     }
 
-    @GetMapping("/private/hello")
-    public String privateEndpoint(@AuthenticationPrincipal Jwt jwt) {
-        return "Hello " + jwt.getClaimAsString("preferred_username") + "This is a protected endpont";
-    }
+    // @GetMapping("/private/hello")
+    // public String privateEndpoint(@AuthenticationPrincipal Jwt jwt) {
+    //     return "Hello " + jwt.getClaimAsString("preferred_username") + "This is a protected endpont";
+    // }
 }

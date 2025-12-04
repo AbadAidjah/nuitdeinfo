@@ -3,8 +3,7 @@ package com.note.demo.controller;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
-import org.springframework.security.oauth2.jwt.Jwt;
-import org.springframework.security.oauth2.core.user.OAuth2User;
+import org.springframework.security.core.userdetails.UserDetails;
 
 import com.note.demo.model.Notes;
 import com.note.demo.model.Users;
@@ -39,14 +38,13 @@ public class NoteController {
     UserService userService;
 
     @GetMapping("/my-notes")
-    public ResponseEntity<?> getMyNotes(@AuthenticationPrincipal Object principal) {
-        Users user = null;
-        if (principal instanceof Jwt jwt) {
-            user = userService.syncUserFromJwt(jwt);
-        } else if (principal instanceof org.springframework.security.oauth2.core.user.OAuth2User oauth2User) {
-            user = userService.syncUserFromOAuth2(oauth2User);
-        } else {
-            return ResponseEntity.status(401).body("Not authenticated: principal is null or unknown type: " + (principal == null ? "null" : principal.getClass().getName()));
+    public ResponseEntity<?> getMyNotes(@AuthenticationPrincipal UserDetails userDetails) {
+        if (userDetails == null) {
+            return ResponseEntity.status(401).body("Not authenticated");
+        }
+        Users user = userService.findByUsername(userDetails.getUsername());
+        if (user == null) {
+            return ResponseEntity.status(401).body("User not found");
         }
         List<Notes> notes = user.getNotes();
         return ResponseEntity.ok(notes);
@@ -66,16 +64,14 @@ public class NoteController {
     @PostMapping("/create/")
     public ResponseEntity<?> createNote(
             @RequestBody CreateNoteRequest request, 
-            @AuthenticationPrincipal Jwt jwt,
-            @AuthenticationPrincipal OAuth2User oauth2User) {
-        try{
-            Users user;
-            if (jwt != null) {
-                user = userService.syncUserFromJwt(jwt);
-            } else if (oauth2User != null) {
-                user = userService.syncUserFromOAuth2(oauth2User);
-            } else {
+            @AuthenticationPrincipal UserDetails userDetails) {
+        try {
+            if (userDetails == null) {
                 return ResponseEntity.status(401).body("Not authenticated");
+            }
+            Users user = userService.findByUsername(userDetails.getUsername());
+            if (user == null) {
+                return ResponseEntity.status(401).body("User not found");
             }
             
             if (request.getTitle() == null || request.getTitle().trim().isEmpty()) {
@@ -100,9 +96,9 @@ public class NoteController {
     }
     
     @GetMapping("/note/{noteId}")
-    public ResponseEntity<?> getNoteById(@PathVariable Long noteId, @AuthenticationPrincipal Object principal) {
+    public ResponseEntity<?> getNoteById(@PathVariable Long noteId, @AuthenticationPrincipal UserDetails userDetails) {
         try {
-            Users user = getAuthenticatedUser(principal);
+            Users user = getAuthenticatedUser(userDetails);
             if (user == null) {
                 return ResponseEntity.status(401).body("Not authenticated");
             }
@@ -127,9 +123,9 @@ public class NoteController {
     public ResponseEntity<?> updateNote(
             @PathVariable Long noteId,
             @RequestBody UpdateNoteRequest request,
-            @AuthenticationPrincipal Object principal) {
+            @AuthenticationPrincipal UserDetails userDetails) {
         try {
-            Users user = getAuthenticatedUser(principal);
+            Users user = getAuthenticatedUser(userDetails);
             if (user == null) {
                 return ResponseEntity.status(401).body("Not authenticated");
             }
@@ -159,9 +155,9 @@ public class NoteController {
     }
     
     @DeleteMapping("/delete/{noteId}")
-    public ResponseEntity<?> deleteNote(@PathVariable Long noteId, @AuthenticationPrincipal Object principal) {
+    public ResponseEntity<?> deleteNote(@PathVariable Long noteId, @AuthenticationPrincipal UserDetails userDetails) {
         try {
-            Users user = getAuthenticatedUser(principal);
+            Users user = getAuthenticatedUser(userDetails);
             if (user == null) {
                 return ResponseEntity.status(401).body("Not authenticated");
             }
@@ -186,9 +182,9 @@ public class NoteController {
     @GetMapping("/search")
     public ResponseEntity<?> searchNotes(
             @org.springframework.web.bind.annotation.RequestParam String query,
-            @AuthenticationPrincipal Object principal) {
+            @AuthenticationPrincipal UserDetails userDetails) {
         try {
-            Users user = getAuthenticatedUser(principal);
+            Users user = getAuthenticatedUser(userDetails);
             if (user == null) {
                 return ResponseEntity.status(401).body("Not authenticated");
             }
@@ -210,9 +206,9 @@ public class NoteController {
     }
     
     @GetMapping("/count")
-    public ResponseEntity<?> getNotesCount(@AuthenticationPrincipal Object principal) {
+    public ResponseEntity<?> getNotesCount(@AuthenticationPrincipal UserDetails userDetails) {
         try {
-            Users user = getAuthenticatedUser(principal);
+            Users user = getAuthenticatedUser(userDetails);
             if (user == null) {
                 return ResponseEntity.status(401).body("Not authenticated");
             }
@@ -224,13 +220,11 @@ public class NoteController {
         }
     }
     
-    private Users getAuthenticatedUser(Object principal) {
-        if (principal instanceof Jwt jwt) {
-            return userService.syncUserFromJwt(jwt);
-        } else if (principal instanceof OAuth2User oauth2User) {
-            return userService.syncUserFromOAuth2(oauth2User);
+    private Users getAuthenticatedUser(UserDetails userDetails) {
+        if (userDetails == null) {
+            return null;
         }
-        return null;
+        return userService.findByUsername(userDetails.getUsername());
     }
     
     public static class UpdateNoteRequest {

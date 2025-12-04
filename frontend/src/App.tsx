@@ -1,5 +1,7 @@
 import { useState, useEffect } from 'react';
-import { Plus, Edit2, Trash2, Save, X, LogOut, User } from 'lucide-react';
+import { Plus, Edit2, Trash2, Save, X, LogOut, User, Settings } from 'lucide-react';
+
+const API_BASE = 'http://localhost:8081';
 
 interface Note {
   id: number;
@@ -8,30 +10,70 @@ interface Note {
   created_at: string;
 }
 
-interface User {
+interface UserData {
+  id: number;
   username: string;
   email: string;
-  name: string;
+  firstName: string;
+  lastName: string;
+}
+
+interface AuthResponse {
+  token: string;
+  id: number;
+  username: string;
+  email: string;
+  firstName: string;
+  lastName: string;
 }
 
 function App() {
   const [notes, setNotes] = useState<Note[]>([]);
-  const [user, setUser] = useState<User | null>(null);
+  const [user, setUser] = useState<UserData | null>(null);
+  const [token, setToken] = useState<string | null>(localStorage.getItem('token'));
   const [isLoading, setIsLoading] = useState(true);
   const [isCreating, setIsCreating] = useState(false);
   const [editingId, setEditingId] = useState<number | null>(null);
   const [newNote, setNewNote] = useState({ title: '', content: '' });
   const [editNote, setEditNote] = useState({ title: '', content: '' });
-
   
+  // Auth state
+  const [authView, setAuthView] = useState<'login' | 'register'>('login');
+  const [showProfile, setShowProfile] = useState(false);
+  const [authForm, setAuthForm] = useState({
+    username: '',
+    email: '',
+    password: '',
+    firstName: '',
+    lastName: ''
+  });
+  const [profileForm, setProfileForm] = useState({
+    username: '',
+    email: '',
+    firstName: '',
+    lastName: '',
+    currentPassword: '',
+    newPassword: ''
+  });
+  const [error, setError] = useState('');
+
+  const getAuthHeaders = () => ({
+    'Content-Type': 'application/json',
+    ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+  });
+
   useEffect(() => {
-    checkAuth();
-  }, []);
+    if (token) {
+      checkAuth();
+    } else {
+      setIsLoading(false);
+    }
+  }, [token]);
 
   const checkAuth = async () => {
     try {
-      const response = await fetch('/auth/user', {
-        credentials: 'include'
+      const response = await fetch(`${API_BASE}/auth/me`, {
+        headers: getAuthHeaders()
       });
       
       if (response.ok) {
@@ -39,48 +81,171 @@ function App() {
         setUser(userData);
         await loadNotes();
       } else {
-        handleLogin();
+        handleLogout();
       }
     } catch (error) {
       console.error('Auth check failed:', error);
-      handleLogin();
+      handleLogout();
     } finally {
       setIsLoading(false);
     }
   };
 
-  const handleLogin = async () => {
+  const handleLogin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError('');
+    
     try {
-      const response = await fetch('/auth/login-url');
-      const { loginUrl } = await response.json();
-      window.location.href = loginUrl;
+      const response = await fetch(`${API_BASE}/auth/login`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          username: authForm.username,
+          password: authForm.password
+        })
+      });
+
+      const data = await response.json();
+      
+      if (response.ok) {
+        const authData = data as AuthResponse;
+        localStorage.setItem('token', authData.token);
+        setToken(authData.token);
+        setUser({
+          id: authData.id,
+          username: authData.username,
+          email: authData.email,
+          firstName: authData.firstName,
+          lastName: authData.lastName
+        });
+        setAuthForm({ username: '', email: '', password: '', firstName: '', lastName: '' });
+        await loadNotes();
+      } else {
+        setError(data.error || 'Login failed');
+      }
     } catch (error) {
-      console.error('Failed to get login URL:', error);
+      console.error('Login failed:', error);
+      setError('Login failed. Please try again.');
     }
   };
 
-  // const handleLogout = () => {
-  //   window.location.href = '/logout';
-  // };
-
-    const handleLogout = async () => {
+  const handleRegister = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError('');
+    
     try {
-      const response = await fetch('/auth/logout-url', {
-        credentials: 'include'
+      const response = await fetch(`${API_BASE}/auth/register`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(authForm)
       });
-      const { logoutUrl } = await response.json();
-      window.location.href = logoutUrl;
+
+      const data = await response.json();
+      
+      if (response.ok) {
+        const authData = data as AuthResponse;
+        localStorage.setItem('token', authData.token);
+        setToken(authData.token);
+        setUser({
+          id: authData.id,
+          username: authData.username,
+          email: authData.email,
+          firstName: authData.firstName,
+          lastName: authData.lastName
+        });
+        setAuthForm({ username: '', email: '', password: '', firstName: '', lastName: '' });
+      } else {
+        setError(data.error || 'Registration failed');
+      }
     } catch (error) {
-      console.error('Failed to get logout URL:', error);
-      // Fallback to direct logout endpoint
-      window.location.href = '/logout';
+      console.error('Registration failed:', error);
+      setError('Registration failed. Please try again.');
+    }
+  };
+
+  const handleLogout = () => {
+    localStorage.removeItem('token');
+    setToken(null);
+    setUser(null);
+    setNotes([]);
+  };
+
+  const openProfile = () => {
+    if (user) {
+      setProfileForm({
+        username: user.username,
+        email: user.email,
+        firstName: user.firstName || '',
+        lastName: user.lastName || '',
+        currentPassword: '',
+        newPassword: ''
+      });
+      setShowProfile(true);
+    }
+  };
+
+  const handleUpdateProfile = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError('');
+    
+    try {
+      const response = await fetch(`${API_BASE}/auth/profile`, {
+        method: 'PUT',
+        headers: getAuthHeaders(),
+        body: JSON.stringify(profileForm)
+      });
+
+      const data = await response.json();
+      
+      if (response.ok) {
+        const authData = data as AuthResponse;
+        localStorage.setItem('token', authData.token);
+        setToken(authData.token);
+        setUser({
+          id: authData.id,
+          username: authData.username,
+          email: authData.email,
+          firstName: authData.firstName,
+          lastName: authData.lastName
+        });
+        setShowProfile(false);
+        setProfileForm({ ...profileForm, currentPassword: '', newPassword: '' });
+      } else {
+        setError(data.error || 'Update failed');
+      }
+    } catch (error) {
+      console.error('Update failed:', error);
+      setError('Update failed. Please try again.');
+    }
+  };
+
+  const handleDeleteAccount = async () => {
+    if (!window.confirm('Are you sure you want to delete your account? This action cannot be undone.')) {
+      return;
+    }
+    
+    try {
+      const response = await fetch(`${API_BASE}/auth/profile`, {
+        method: 'DELETE',
+        headers: getAuthHeaders()
+      });
+
+      if (response.ok) {
+        handleLogout();
+      } else {
+        const data = await response.json();
+        setError(data.error || 'Failed to delete account');
+      }
+    } catch (error) {
+      console.error('Delete failed:', error);
+      setError('Failed to delete account. Please try again.');
     }
   };
 
   const loadNotes = async () => {
     try {
-      const response = await fetch('/api/notes/my-notes', {
-        credentials: 'include'
+      const response = await fetch(`${API_BASE}/api/notes/my-notes`, {
+        headers: getAuthHeaders()
       });
       
       if (response.ok) {
@@ -100,12 +265,9 @@ function App() {
     }
 
     try {
-      const response = await fetch('/api/notes/create/', {
+      const response = await fetch(`${API_BASE}/api/notes/create/`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        credentials: 'include',
+        headers: getAuthHeaders(),
         body: JSON.stringify({
           title: newNote.title.trim() || 'Untitled',
           content: newNote.content.trim()
@@ -131,12 +293,9 @@ function App() {
     if (!editingId) return;
 
     try {
-      const response = await fetch(`/api/notes/update/${editingId}`, {
+      const response = await fetch(`${API_BASE}/api/notes/update/${editingId}`, {
         method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        credentials: 'include',
+        headers: getAuthHeaders(),
         body: JSON.stringify({
           title: editNote.title.trim() || 'Untitled',
           content: editNote.content.trim()
@@ -166,9 +325,9 @@ function App() {
     }
 
     try {
-      const response = await fetch(`/api/notes/delete/${id}`, {
+      const response = await fetch(`${API_BASE}/api/notes/delete/${id}`, {
         method: 'DELETE',
-        credentials: 'include'
+        headers: getAuthHeaders()
       });
 
       if (response.ok) {
@@ -209,23 +368,226 @@ function App() {
     );
   }
 
-  if (!user) {
+  // Profile Modal
+  if (showProfile && user) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="bg-white p-8 rounded-lg shadow-md text-center">
-          <h1 className="text-2xl font-bold text-gray-800 mb-4">Welcome to Notes App</h1>
-          <p className="text-gray-600 mb-6">Please log in to access your notes</p>
-          <button
-            onClick={handleLogin}
-            className="bg-blue-500 hover:bg-blue-600 text-white px-6 py-3 rounded-lg"
-          >
-            Login with Keycloak
-          </button>
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
+        <div className="bg-white p-8 rounded-lg shadow-md w-full max-w-md">
+          <h2 className="text-2xl font-bold text-gray-800 mb-6">Edit Profile</h2>
+          
+          {error && (
+            <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
+              {error}
+            </div>
+          )}
+          
+          <form onSubmit={handleUpdateProfile}>
+            <div className="mb-4">
+              <label className="block text-gray-700 text-sm font-bold mb-2">Username</label>
+              <input
+                type="text"
+                value={profileForm.username}
+                onChange={(e) => setProfileForm({ ...profileForm, username: e.target.value })}
+                className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                required
+              />
+            </div>
+            
+            <div className="mb-4">
+              <label className="block text-gray-700 text-sm font-bold mb-2">Email</label>
+              <input
+                type="email"
+                value={profileForm.email}
+                onChange={(e) => setProfileForm({ ...profileForm, email: e.target.value })}
+                className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                required
+              />
+            </div>
+            
+            <div className="grid grid-cols-2 gap-4 mb-4">
+              <div>
+                <label className="block text-gray-700 text-sm font-bold mb-2">First Name</label>
+                <input
+                  type="text"
+                  value={profileForm.firstName}
+                  onChange={(e) => setProfileForm({ ...profileForm, firstName: e.target.value })}
+                  className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+              <div>
+                <label className="block text-gray-700 text-sm font-bold mb-2">Last Name</label>
+                <input
+                  type="text"
+                  value={profileForm.lastName}
+                  onChange={(e) => setProfileForm({ ...profileForm, lastName: e.target.value })}
+                  className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+            </div>
+            
+            <hr className="my-4" />
+            <p className="text-sm text-gray-600 mb-4">Change Password (leave blank to keep current)</p>
+            
+            <div className="mb-4">
+              <label className="block text-gray-700 text-sm font-bold mb-2">Current Password</label>
+              <input
+                type="password"
+                value={profileForm.currentPassword}
+                onChange={(e) => setProfileForm({ ...profileForm, currentPassword: e.target.value })}
+                className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+            </div>
+            
+            <div className="mb-6">
+              <label className="block text-gray-700 text-sm font-bold mb-2">New Password</label>
+              <input
+                type="password"
+                value={profileForm.newPassword}
+                onChange={(e) => setProfileForm({ ...profileForm, newPassword: e.target.value })}
+                className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+            </div>
+            
+            <div className="flex gap-2 mb-4">
+              <button
+                type="submit"
+                className="flex-1 bg-blue-500 hover:bg-blue-600 text-white py-2 rounded-lg"
+              >
+                Save Changes
+              </button>
+              <button
+                type="button"
+                onClick={() => { setShowProfile(false); setError(''); }}
+                className="flex-1 bg-gray-500 hover:bg-gray-600 text-white py-2 rounded-lg"
+              >
+                Cancel
+              </button>
+            </div>
+            
+            <button
+              type="button"
+              onClick={handleDeleteAccount}
+              className="w-full bg-red-500 hover:bg-red-600 text-white py-2 rounded-lg"
+            >
+              Delete Account
+            </button>
+          </form>
         </div>
       </div>
     );
   }
 
+  // Auth Screen
+  if (!user) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
+        <div className="bg-white p-8 rounded-lg shadow-md w-full max-w-md">
+          <h1 className="text-2xl font-bold text-gray-800 mb-6 text-center">
+            {authView === 'login' ? 'Login' : 'Register'}
+          </h1>
+          
+          {error && (
+            <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
+              {error}
+            </div>
+          )}
+          
+          <form onSubmit={authView === 'login' ? handleLogin : handleRegister}>
+            <div className="mb-4">
+              <label className="block text-gray-700 text-sm font-bold mb-2">Username</label>
+              <input
+                type="text"
+                value={authForm.username}
+                onChange={(e) => setAuthForm({ ...authForm, username: e.target.value })}
+                className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                required
+              />
+            </div>
+            
+            {authView === 'register' && (
+              <>
+                <div className="mb-4">
+                  <label className="block text-gray-700 text-sm font-bold mb-2">Email</label>
+                  <input
+                    type="email"
+                    value={authForm.email}
+                    onChange={(e) => setAuthForm({ ...authForm, email: e.target.value })}
+                    className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    required
+                  />
+                </div>
+                
+                <div className="grid grid-cols-2 gap-4 mb-4">
+                  <div>
+                    <label className="block text-gray-700 text-sm font-bold mb-2">First Name</label>
+                    <input
+                      type="text"
+                      value={authForm.firstName}
+                      onChange={(e) => setAuthForm({ ...authForm, firstName: e.target.value })}
+                      className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-gray-700 text-sm font-bold mb-2">Last Name</label>
+                    <input
+                      type="text"
+                      value={authForm.lastName}
+                      onChange={(e) => setAuthForm({ ...authForm, lastName: e.target.value })}
+                      className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                  </div>
+                </div>
+              </>
+            )}
+            
+            <div className="mb-6">
+              <label className="block text-gray-700 text-sm font-bold mb-2">Password</label>
+              <input
+                type="password"
+                value={authForm.password}
+                onChange={(e) => setAuthForm({ ...authForm, password: e.target.value })}
+                className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                required
+              />
+            </div>
+            
+            <button
+              type="submit"
+              className="w-full bg-blue-500 hover:bg-blue-600 text-white py-2 rounded-lg mb-4"
+            >
+              {authView === 'login' ? 'Login' : 'Register'}
+            </button>
+          </form>
+          
+          <p className="text-center text-gray-600">
+            {authView === 'login' ? (
+              <>
+                Don't have an account?{' '}
+                <button
+                  onClick={() => { setAuthView('register'); setError(''); }}
+                  className="text-blue-500 hover:underline"
+                >
+                  Register
+                </button>
+              </>
+            ) : (
+              <>
+                Already have an account?{' '}
+                <button
+                  onClick={() => { setAuthView('login'); setError(''); }}
+                  className="text-blue-500 hover:underline"
+                >
+                  Login
+                </button>
+              </>
+            )}
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  // Main App
   return (
     <div className="min-h-screen bg-gray-50 p-4">
       <div className="max-w-4xl mx-auto">
@@ -247,6 +609,13 @@ function App() {
                 Add Note
               </button>
             )}
+            <button
+              onClick={openProfile}
+              className="bg-gray-500 hover:bg-gray-600 text-white px-4 py-2 rounded-lg flex items-center gap-2"
+            >
+              <Settings size={20} />
+              Profile
+            </button>
             <button
               onClick={handleLogout}
               className="bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded-lg flex items-center gap-2"

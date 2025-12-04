@@ -4,6 +4,7 @@ import jakarta.persistence.*;
 import java.time.LocalDateTime;
 import java.util.List;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonManagedReference;
 
 @Entity
@@ -13,12 +14,14 @@ public class Users {
     private Long id;
     
     @Column(unique = true)
-    private String keycloakId;
-    
-    @Column(unique = true)
     private String username;
     
+    @Column(unique = true)
     private String email;
+    
+    @JsonIgnore
+    private String password;
+    
     private String firstName;
     private String lastName;
     
@@ -34,10 +37,10 @@ public class Users {
 
     public Users(){}
 
-    public Users(String keycloakId, String username, String email){
-        this.keycloakId = keycloakId;
+    public Users(String username, String email, String password){
         this.username = username;
         this.email = email;
+        this.password = password;
         this.createdAt = LocalDateTime.now();
     }
 
@@ -47,14 +50,6 @@ public class Users {
     
     public void setId(Long id) { 
         this.id = id; 
-    }
-    
-    public String getKeycloakId() { 
-        return keycloakId; 
-    }
-    
-    public void setKeycloakId(String keycloakId) { 
-        this.keycloakId = keycloakId; 
     }
     
     public String getUsername() { 
@@ -71,6 +66,14 @@ public class Users {
     
     public void setEmail(String email) { 
         this.email = email; 
+    }
+    
+    public String getPassword() { 
+        return password; 
+    }
+    
+    public void setPassword(String password) { 
+        this.password = password; 
     }
     
     public String getFirstName() { 
