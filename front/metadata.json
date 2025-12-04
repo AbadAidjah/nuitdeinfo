@@ -1,0 +1,5 @@
+{
+  "name": "Copy of SmartNotes Manager",
+  "description": "Une application de gestion de notes et d'utilisateurs avec authentification et support IA (Gemini). (A Notes and User management app with Auth and AI support).",
+  "requestFramePermissions": []
+}
