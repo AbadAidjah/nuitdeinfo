@@ -1,5 +1,6 @@
 package com.note.demo.dto;
 
+import com.note.demo.model.Role;
 import com.note.demo.model.Users;
 import java.time.LocalDateTime;
 
@@ -9,6 +10,7 @@ public class UserResponse {
     private String email;
     private String firstName;
     private String lastName;
+    private Role role;
     private LocalDateTime createdAt;
     private LocalDateTime lastLogin;
 
@@ -20,6 +22,7 @@ public class UserResponse {
         this.email = user.getEmail();
         this.firstName = user.getFirstName();
         this.lastName = user.getLastName();
+        this.role = user.getRole();
         this.createdAt = user.getCreatedAt();
         this.lastLogin = user.getLastLogin();
     }
@@ -62,6 +65,14 @@ public class UserResponse {
 
     public void setLastName(String lastName) {
         this.lastName = lastName;
+    }
+
+    public Role getRole() {
+        return role;
+    }
+
+    public void setRole(Role role) {
+        this.role = role;
     }
 
     public LocalDateTime getCreatedAt() {
