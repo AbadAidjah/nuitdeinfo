@@ -1,14 +1,15 @@
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { Bot, Mail, Lock, ArrowRight, CheckCircle2 } from 'lucide-react';
+import { Bot, User, Lock, ArrowRight, CheckCircle2 } from 'lucide-react';
 import { motion } from 'framer-motion';
 import toast from 'react-hot-toast';
 import Input from '../components/Input';
 import Button from '../components/Button';
-import { StorageService } from '../services/storage';
+
+const API_BASE_URL = 'http://localhost:8081';
 
 const Login: React.FC = () => {
-  const [email, setEmail] = useState('');
+  const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
@@ -17,23 +18,47 @@ const Login: React.FC = () => {
     e.preventDefault();
     setLoading(true);
 
-    // Simulate network delay for better feel
-    await new Promise(resolve => setTimeout(resolve, 800));
+    try {
+      const response = await fetch(`${API_BASE_URL}/auth/login`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          username,
+          password,
+        }),
+      });
 
-    const user = StorageService.login(email, password);
-    if (user) {
-        toast.success(`Bon retour, ${user.username} !`);
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Identifiants incorrects');
+      }
+
+      // Save token and user info
+      localStorage.setItem('token', data.token);
+      localStorage.setItem('user', JSON.stringify(data));
+
+      toast.success(`Bon retour, ${data.firstName || data.username} !`);
+      
+      // Redirect based on role
+      if (data.role === 'ADMIN') {
+        navigate('/admin');
+      } else {
         navigate('/notes');
-    } else {
-        toast.error('Email ou mot de passe incorrect.');
-        setLoading(false);
+      }
+    } catch (err: any) {
+      toast.error(err.message || 'Email ou mot de passe incorrect.');
+    } finally {
+      setLoading(false);
     }
   };
 
   const fillDemoAccount = () => {
-      setEmail('admin@example.com');
-      setPassword('password123');
-      toast.success('Identifiants de démo remplis !');
+    setUsername('testuser');
+    setPassword('password123');
+    toast.success('Identifiants de démo remplis !');
   };
 
   return (
@@ -65,19 +90,19 @@ const Login: React.FC = () => {
         <div className="bg-white py-8 px-4 shadow-xl shadow-indigo-100/50 sm:rounded-2xl sm:px-10 border border-gray-100">
           <form className="space-y-6" onSubmit={handleSubmit}>
             <Input
-              id="email"
-              type="email"
-              label="Adresse Email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
+              id="username"
+              type="text"
+              label="Nom d'utilisateur"
+              value={username}
+              onChange={(e) => setUsername(e.target.value)}
               required
-              autoComplete="email"
-              icon={<Mail className="w-5 h-5" />}
-              placeholder="votre@email.com"
+              autoComplete="username"
+              icon={<User className="w-5 h-5" />}
+              placeholder="votre_nom_utilisateur"
             />
 
             <div>
-                <Input
+              <Input
                 id="password"
                 type="password"
                 label="Mot de passe"
@@ -87,14 +112,14 @@ const Login: React.FC = () => {
                 autoComplete="current-password"
                 icon={<Lock className="w-5 h-5" />}
                 placeholder="••••••••"
-                />
-                <div className="flex items-center justify-end mt-1">
-                    <div className="text-sm">
-                        <a href="#" className="font-medium text-indigo-600 hover:text-indigo-500 hover:underline">
-                            Mot de passe oublié ?
-                        </a>
-                    </div>
+              />
+              <div className="flex items-center justify-end mt-1">
+                <div className="text-sm">
+                  <a href="#" className="font-medium text-indigo-600 hover:text-indigo-500 hover:underline">
+                    Mot de passe oublié ?
+                  </a>
                 </div>
+              </div>
             </div>
 
             <div>
@@ -117,11 +142,11 @@ const Login: React.FC = () => {
             </div>
             
             <div className="mt-6">
-                <Link to="/register">
-                    <Button variant="secondary" className="w-full">
-                        Créer un compte gratuitement
-                    </Button>
-                </Link>
+              <Link to="/register">
+                <Button variant="secondary" className="w-full">
+                  Créer un compte gratuitement
+                </Button>
+              </Link>
             </div>
           </div>
           
@@ -132,15 +157,15 @@ const Login: React.FC = () => {
             onClick={fillDemoAccount}
           >
             <div className="flex items-center justify-between">
-                <div className="flex items-center space-x-3">
-                    <div className="p-2 bg-indigo-100 rounded-lg group-hover:bg-indigo-200 transition-colors">
-                        <CheckCircle2 className="w-5 h-5 text-indigo-700" />
-                    </div>
-                    <div>
-                        <p className="text-sm font-semibold text-gray-900">Compte de démonstration</p>
-                        <p className="text-xs text-gray-500">Cliquez pour remplir automatiquement</p>
-                    </div>
+              <div className="flex items-center space-x-3">
+                <div className="p-2 bg-indigo-100 rounded-lg group-hover:bg-indigo-200 transition-colors">
+                  <CheckCircle2 className="w-5 h-5 text-indigo-700" />
                 </div>
+                <div>
+                  <p className="text-sm font-semibold text-gray-900">Compte de démonstration</p>
+                  <p className="text-xs text-gray-500">Cliquez pour remplir automatiquement</p>
+                </div>
+              </div>
             </div>
           </motion.div>
 

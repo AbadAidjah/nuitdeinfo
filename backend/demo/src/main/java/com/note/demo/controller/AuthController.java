@@ -63,6 +63,8 @@ public class AuthController {
             SecurityContextHolder.getContext().setAuthentication(authentication);
             String token = jwtUtils.generateJwtToken(authentication);
             
+
+
             UserDetails userDetails = (UserDetails) authentication.getPrincipal();
             Users user = userService.findByUsername(userDetails.getUsername());
             userService.updateLastLogin(user.getUsername());
@@ -75,6 +77,8 @@ public class AuthController {
                 user.getFirstName(),
                 user.getLastName()
             );
+
+            System.out.println("got into login ");
             
             return ResponseEntity.ok(response);
         } catch (Exception e) {
