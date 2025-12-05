@@ -8,6 +8,7 @@ public class AdminUpdateUserRequest {
     private String firstName;
     private String lastName;
     private String password;
+    private String profileLink;
     private Role role;
 
     public String getUsername() {
@@ -48,6 +49,14 @@ public class AdminUpdateUserRequest {
 
     public void setPassword(String password) {
         this.password = password;
+    }
+
+    public String getProfileLink() {
+        return profileLink;
+    }
+
+    public void setProfileLink(String profileLink) {
+        this.profileLink = profileLink;
     }
 
     public Role getRole() {

@@ -25,6 +25,8 @@ public class Users {
     private String firstName;
     private String lastName;
     
+    private String profileLink;
+    
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     private Role role = Role.USER;
@@ -95,6 +97,14 @@ public class Users {
     
     public void setLastName(String lastName) { 
         this.lastName = lastName; 
+    }
+    
+    public String getProfileLink() { 
+        return profileLink; 
+    }
+    
+    public void setProfileLink(String profileLink) { 
+        this.profileLink = profileLink; 
     }
     
     public Role getRole() {

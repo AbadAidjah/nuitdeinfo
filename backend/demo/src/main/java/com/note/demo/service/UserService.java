@@ -82,6 +82,10 @@ public class UserService {
             user.setLastName(request.getLastName());
         }
         
+        if (request.getProfileLink() != null) {
+            user.setProfileLink(request.getProfileLink());
+        }
+        
         // Update password if provided
         if (request.getNewPassword() != null && !request.getNewPassword().isEmpty()) {
             if (request.getCurrentPassword() == null || 
@@ -161,6 +165,10 @@ public class UserService {
         
         if (request.getLastName() != null) {
             user.setLastName(request.getLastName());
+        }
+        
+        if (request.getProfileLink() != null) {
+            user.setProfileLink(request.getProfileLink());
         }
         
         if (request.getRole() != null) {

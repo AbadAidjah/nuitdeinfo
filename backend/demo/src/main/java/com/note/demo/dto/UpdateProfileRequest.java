@@ -5,6 +5,7 @@ public class UpdateProfileRequest {
     private String email;
     private String firstName;
     private String lastName;
+    private String profileLink;
     private String currentPassword;
     private String newPassword;
 
@@ -40,6 +41,14 @@ public class UpdateProfileRequest {
 
     public void setLastName(String lastName) {
         this.lastName = lastName;
+    }
+
+    public String getProfileLink() {
+        return profileLink;
+    }
+
+    public void setProfileLink(String profileLink) {
+        this.profileLink = profileLink;
     }
 
     public String getCurrentPassword() {

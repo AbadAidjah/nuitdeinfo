@@ -43,6 +43,7 @@ public class AuthController {
                 user.getEmail(),
                 user.getFirstName(),
                 user.getLastName(),
+                user.getProfileLink(),
                 user.getRole()
             );
             
@@ -77,6 +78,7 @@ public class AuthController {
                 user.getEmail(),
                 user.getFirstName(),
                 user.getLastName(),
+                user.getProfileLink(),
                 user.getRole()
             );
 
@@ -132,6 +134,7 @@ public class AuthController {
                 updatedUser.getEmail(),
                 updatedUser.getFirstName(),
                 updatedUser.getLastName(),
+                updatedUser.getProfileLink(),
                 updatedUser.getRole()
             );
             

@@ -10,17 +10,19 @@ public class AuthResponse {
     private String email;
     private String firstName;
     private String lastName;
+    private String profileLink;
     private Role role;
 
     public AuthResponse() {}
 
-    public AuthResponse(String token, Long id, String username, String email, String firstName, String lastName, Role role) {
+    public AuthResponse(String token, Long id, String username, String email, String firstName, String lastName, String profileLink, Role role) {
         this.token = token;
         this.id = id;
         this.username = username;
         this.email = email;
         this.firstName = firstName;
         this.lastName = lastName;
+        this.profileLink = profileLink;
         this.role = role;
     }
 
@@ -78,6 +80,14 @@ public class AuthResponse {
 
     public void setLastName(String lastName) {
         this.lastName = lastName;
+    }
+
+    public String getProfileLink() {
+        return profileLink;
+    }
+
+    public void setProfileLink(String profileLink) {
+        this.profileLink = profileLink;
     }
 
     public Role getRole() {

@@ -10,6 +10,7 @@ public class UserResponse {
     private String email;
     private String firstName;
     private String lastName;
+    private String profileLink;
     private Role role;
     private LocalDateTime createdAt;
     private LocalDateTime lastLogin;
@@ -22,6 +23,7 @@ public class UserResponse {
         this.email = user.getEmail();
         this.firstName = user.getFirstName();
         this.lastName = user.getLastName();
+        this.profileLink = user.getProfileLink();
         this.role = user.getRole();
         this.createdAt = user.getCreatedAt();
         this.lastLogin = user.getLastLogin();
@@ -65,6 +67,14 @@ public class UserResponse {
 
     public void setLastName(String lastName) {
         this.lastName = lastName;
+    }
+
+    public String getProfileLink() {
+        return profileLink;
+    }
+
+    public void setProfileLink(String profileLink) {
+        this.profileLink = profileLink;
     }
 
     public Role getRole() {
