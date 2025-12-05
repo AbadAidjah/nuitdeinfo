@@ -7,8 +7,7 @@ import Layout from '../components/Layout';
 import Button from '../components/Button';
 import Input from '../components/Input';
 import Modal from '../components/Modal';
-
-const API_BASE_URL = '';
+import { API_BASE_URL } from '../config';
 
 interface User {
   id: number;

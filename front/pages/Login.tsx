@@ -5,8 +5,7 @@ import { motion } from 'framer-motion';
 import toast from 'react-hot-toast';
 import Input from '../components/Input';
 import Button from '../components/Button';
-
-const API_BASE_URL = '';
+import { API_BASE_URL } from '../config';
 
 const Login: React.FC = () => {
   const [username, setUsername] = useState('');
@@ -47,12 +46,14 @@ const Login: React.FC = () => {
 
       toast.success(`Bon retour, ${data.firstName || data.username} !`);
       
-      // Navigate to notes immediately
-      navigate('/notes', { replace: true });
+      // Use setTimeout to ensure state is saved before navigation
+      setTimeout(() => {
+        // Navigate to notes for all users (admins can access /users from sidebar)
+        navigate('/notes', { replace: true });
+      }, 100);
       
     } catch (err: any) {
       toast.error(err.message || 'Email ou mot de passe incorrect.');
-    } finally {
       setLoading(false);
     }
   };

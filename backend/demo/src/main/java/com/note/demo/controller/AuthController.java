@@ -111,8 +111,7 @@ public class AuthController {
         return ResponseEntity.ok(new UserResponse(user));
     }
     
-    // ...existing code...
-
+    
 @PutMapping("/profile/{userId}")
 public ResponseEntity<?> updateProfile(
         @PathVariable Long userId,
@@ -124,28 +123,14 @@ public ResponseEntity<?> updateProfile(
             error.put("error", "Not authenticated");
             return ResponseEntity.status(401).body(error);
         }
-        
-        // Get current authenticated user
-        Users currentUser = userService.findByUsername(userDetails.getUsername());
-        
-        // Check if user is updating their own profile or is an admin
-        // if (!currentUser.getId().equals(userId) && 
-        //     !currentUser.getRole().name().equals("ADMIN")) {
-        //     Map<String, String> error = new HashMap<>();
-        //     error.put("error", "You can only update your own profile");
-        //     return ResponseEntity.status(403).body(error);
-        // }
+      
         
         Users updatedUser = userService.updateProfileById(userId, request);
         
-        // Generate new token only if user updated their own profile
-        String token = null;
-        if (currentUser.getId().equals(userId)) {
-            token = jwtUtils.generateTokenFromUsername(updatedUser.getUsername());
-        }
+        String token = jwtUtils.generateTokenFromUsername(updatedUser.getUsername());
         
         AuthResponse response = new AuthResponse(
-            token != null ? token : "",
+            token,
             updatedUser.getId(),
             updatedUser.getUsername(),
             updatedUser.getEmail(),
@@ -163,7 +148,8 @@ public ResponseEntity<?> updateProfile(
     }
 }
 
-// ...existing code...
+
+
     
     @DeleteMapping("/profile")
     public ResponseEntity<?> deleteProfile(@AuthenticationPrincipal UserDetails userDetails) {

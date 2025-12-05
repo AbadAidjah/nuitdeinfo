@@ -1,29 +1,35 @@
-# Use OpenJDK 24 as the base image
-FROM eclipse-temurin:24-jdk-alpine
+# Build stage
+FROM eclipse-temurin:24-jdk-alpine AS build
 
-# Set working directory
 WORKDIR /app
 
-# Copy Maven wrapper and pom.xml first (for better caching)
+# Installer dos2unix pour convertir les fins de ligne
+RUN apk add --no-cache dos2unix
+
+# Copier les fichiers Maven
 COPY mvnw .
-COPY mvnw.cmd .
 COPY pom.xml .
 COPY .mvn .mvn
 
-# Make mvnw executable
-RUN chmod +x ./mvnw
+# Convertir les fins de ligne et rendre exécutable
+RUN dos2unix mvnw && chmod +x mvnw
 
-# Download dependencies (this layer will be cached if pom.xml doesn't change)
+# Télécharger les dépendances
 RUN ./mvnw dependency:go-offline -B
 
-# Copy source code
+# Copier le code source
 COPY src src
 
-# Build the application
+# Build
 RUN ./mvnw clean package -DskipTests
 
-# Expose port 8081 (your Spring Boot app port)
+# Runtime stage (image plus légère)
+FROM eclipse-temurin:24-jre-alpine
+
+WORKDIR /app
+
+COPY --from=build /app/target/demo-0.0.1-SNAPSHOT.jar app.jar
+
 EXPOSE 8081
 
-# Run the application
-CMD ["java", "-jar", "target/demo-0.0.1-SNAPSHOT.jar"]
+CMD ["java", "-jar", "app.jar"]

@@ -5,8 +5,7 @@ import { motion } from 'framer-motion';
 import toast from 'react-hot-toast';
 import Input from '../components/Input';
 import Button from '../components/Button';
-
-const API_BASE_URL = '';
+import { API_BASE_URL } from '../config';
 
 const Register: React.FC = () => {
   const [firstName, setFirstName] = useState('');
