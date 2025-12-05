@@ -111,40 +111,59 @@ public class AuthController {
         return ResponseEntity.ok(new UserResponse(user));
     }
     
-    @PutMapping("/profile")
-    public ResponseEntity<?> updateProfile(
-            @RequestBody UpdateProfileRequest request,
-            @AuthenticationPrincipal UserDetails userDetails) {
-        try {
-            if (userDetails == null) {
-                Map<String, String> error = new HashMap<>();
-                error.put("error", "Not authenticated");
-                return ResponseEntity.status(401).body(error);
-            }
-            
-            Users updatedUser = userService.updateProfile(userDetails.getUsername(), request);
-            
-            // Generate new token if username changed
-            String token = jwtUtils.generateTokenFromUsername(updatedUser.getUsername());
-            
-            AuthResponse response = new AuthResponse(
-                token,
-                updatedUser.getId(),
-                updatedUser.getUsername(),
-                updatedUser.getEmail(),
-                updatedUser.getFirstName(),
-                updatedUser.getLastName(),
-                updatedUser.getProfileLink(),
-                updatedUser.getRole()
-            );
-            
-            return ResponseEntity.ok(response);
-        } catch (RuntimeException e) {
+    // ...existing code...
+
+@PutMapping("/profile/{userId}")
+public ResponseEntity<?> updateProfile(
+        @PathVariable Long userId,
+        @RequestBody UpdateProfileRequest request,
+        @AuthenticationPrincipal UserDetails userDetails) {
+    try {
+        if (userDetails == null) {
             Map<String, String> error = new HashMap<>();
-            error.put("error", e.getMessage());
-            return ResponseEntity.badRequest().body(error);
+            error.put("error", "Not authenticated");
+            return ResponseEntity.status(401).body(error);
         }
+        
+        // Get current authenticated user
+        Users currentUser = userService.findByUsername(userDetails.getUsername());
+        
+        // Check if user is updating their own profile or is an admin
+        // if (!currentUser.getId().equals(userId) && 
+        //     !currentUser.getRole().name().equals("ADMIN")) {
+        //     Map<String, String> error = new HashMap<>();
+        //     error.put("error", "You can only update your own profile");
+        //     return ResponseEntity.status(403).body(error);
+        // }
+        
+        Users updatedUser = userService.updateProfileById(userId, request);
+        
+        // Generate new token only if user updated their own profile
+        String token = null;
+        if (currentUser.getId().equals(userId)) {
+            token = jwtUtils.generateTokenFromUsername(updatedUser.getUsername());
+        }
+        
+        AuthResponse response = new AuthResponse(
+            token != null ? token : "",
+            updatedUser.getId(),
+            updatedUser.getUsername(),
+            updatedUser.getEmail(),
+            updatedUser.getFirstName(),
+            updatedUser.getLastName(),
+            updatedUser.getProfileLink(),
+            updatedUser.getRole()
+        );
+        
+        return ResponseEntity.ok(response);
+    } catch (RuntimeException e) {
+        Map<String, String> error = new HashMap<>();
+        error.put("error", e.getMessage());
+        return ResponseEntity.badRequest().body(error);
     }
+}
+
+// ...existing code...
     
     @DeleteMapping("/profile")
     public ResponseEntity<?> deleteProfile(@AuthenticationPrincipal UserDetails userDetails) {

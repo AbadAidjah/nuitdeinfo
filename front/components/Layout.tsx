@@ -56,21 +56,6 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
     toast.success("Vous avez été déconnecté.");
   };
 
-  const handleOpenProfile = () => {
-    if (currentUser) {
-      setProfileForm({
-        username: currentUser.username || '',
-        email: currentUser.email || '',
-        firstName: (currentUser as any).firstName || '',
-        lastName: (currentUser as any).lastName || '',
-        profileLink: (currentUser as any).profileLink || '',
-        password: '',
-        confirmPassword: ''
-      });
-      setIsProfileOpen(true);
-    }
-  };
-
   const handleUpdateProfile = async () => {
     if (!currentUser) return;
     if (!profileForm.username || !profileForm.email) {
@@ -105,7 +90,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
         updateData.password = profileForm.password;
       }
 
-      const response = await fetch(`${API_BASE_URL}/auth/profile`, {
+      const response = await fetch(`${API_BASE_URL}/auth/profile/${currentUser.id}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -146,6 +131,22 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
       toast.error(e.message || "Erreur lors de la mise à jour.");
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handleOpenProfile = () => {
+    if (currentUser) {
+      const user = currentUser as any;
+      setProfileForm({
+        username: currentUser.username,
+        email: currentUser.email,
+        firstName: user.firstName || '',
+        lastName: user.lastName || '',
+        profileLink: user.profileLink || '',
+        password: '',
+        confirmPassword: ''
+      });
+      setIsProfileOpen(true);
     }
   };
 

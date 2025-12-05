@@ -41,6 +41,63 @@ public class UserService {
         
         return userRepository.save(user);
     }
+
+
+/////////////
+/// // ...existing code...
+
+public Users updateProfileById(Long userId, UpdateProfileRequest request) {
+    Users user = userRepository.findById(userId)
+        .orElseThrow(() -> new RuntimeException("User not found"));
+    
+    // Check if username is being changed and if it's already taken
+    if (request.getUsername() != null && !request.getUsername().equals(user.getUsername())) {
+        if (userRepository.findByUsername(request.getUsername()).isPresent()) {
+            throw new RuntimeException("Username already exists");
+        }
+        user.setUsername(request.getUsername());
+    }
+    
+    // Check if email is being changed and if it's already taken
+    if (request.getEmail() != null && !request.getEmail().equals(user.getEmail())) {
+        if (userRepository.findByEmail(request.getEmail()).isPresent()) {
+            throw new RuntimeException("Email already exists");
+        }
+        user.setEmail(request.getEmail());
+    }
+    
+    if (request.getFirstName() != null) {
+        user.setFirstName(request.getFirstName());
+    }
+    
+    if (request.getLastName() != null) {
+        user.setLastName(request.getLastName());
+    }
+    
+    if (request.getProfileLink() != null) {
+        user.setProfileLink(request.getProfileLink());
+    }
+    
+    // Update password if provided
+    if (request.getPassword() != null && !request.getPassword().isEmpty()) {
+        user.setPassword(passwordEncoder.encode(request.getPassword()));
+    }
+    // Secure password change (using currentPassword + newPassword)
+    else if (request.getNewPassword() != null && !request.getNewPassword().isEmpty()) {
+        if (request.getCurrentPassword() == null || 
+            !passwordEncoder.matches(request.getCurrentPassword(), user.getPassword())) {
+            throw new RuntimeException("Current password is incorrect");
+        }
+        user.setPassword(passwordEncoder.encode(request.getNewPassword()));
+    }
+    
+    return userRepository.save(user);
+}
+
+// ...existing code... 
+/// 
+
+
     
     public Users findByUsername(String username) {
         return userRepository.findByUsername(username).orElse(null);
