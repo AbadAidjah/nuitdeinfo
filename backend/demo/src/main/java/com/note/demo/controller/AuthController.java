@@ -42,7 +42,8 @@ public class AuthController {
                 user.getUsername(),
                 user.getEmail(),
                 user.getFirstName(),
-                user.getLastName()
+                user.getLastName(),
+                user.getRole()
             );
             
             return ResponseEntity.ok(response);
@@ -75,7 +76,8 @@ public class AuthController {
                 user.getUsername(),
                 user.getEmail(),
                 user.getFirstName(),
-                user.getLastName()
+                user.getLastName(),
+                user.getRole()
             );
 
             System.out.println("got into login ");
@@ -129,7 +131,8 @@ public class AuthController {
                 updatedUser.getUsername(),
                 updatedUser.getEmail(),
                 updatedUser.getFirstName(),
-                updatedUser.getLastName()
+                updatedUser.getLastName(),
+                updatedUser.getRole()
             );
             
             return ResponseEntity.ok(response);

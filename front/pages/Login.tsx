@@ -6,7 +6,7 @@ import toast from 'react-hot-toast';
 import Input from '../components/Input';
 import Button from '../components/Button';
 
-const API_BASE_URL = 'http://localhost:8081';
+const API_BASE_URL = '';
 
 const Login: React.FC = () => {
   const [username, setUsername] = useState('');
@@ -30,7 +30,16 @@ const Login: React.FC = () => {
         }),
       });
 
-      const data = await response.json();
+      // Get response text first
+      const text = await response.text();
+      
+      // Try to parse as JSON
+      let data;
+      try {
+        data = JSON.parse(text);
+      } catch {
+        throw new Error('Erreur serveur. Veuillez réessayer.');
+      }
 
       if (!response.ok) {
         throw new Error(data.error || 'Identifiants incorrects');
@@ -38,21 +47,21 @@ const Login: React.FC = () => {
 
       // Save token and user info
       localStorage.setItem('token', data.token);
-      localStorage.setItem('user', JSON.stringify(data));
+      localStorage.setItem('user', JSON.stringify({
+        id: String(data.id),
+        username: data.username,
+        email: data.email,
+        role: data.role
+      }));
 
       toast.success(`Bon retour, ${data.firstName || data.username} !`);
       
-      // Use setTimeout to ensure state is saved before navigation
-      setTimeout(() => {
-        if (data.role === 'ADMIN') {
-          navigate('/admin', { replace: true });
-        } else {
-          navigate('/notes', { replace: true });
-        }
-      }, 100);
+      // Navigate to notes immediately
+      navigate('/notes', { replace: true });
       
     } catch (err: any) {
       toast.error(err.message || 'Email ou mot de passe incorrect.');
+    } finally {
       setLoading(false);
     }
   };

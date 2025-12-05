@@ -9,7 +9,7 @@ import Input from '../components/Input';
 import Modal from '../components/Modal';
 import { GeminiService } from '../services/geminiService';
 
-const API_BASE_URL = 'http://localhost:8081';
+const API_BASE_URL = '';
 
 interface Note {
   id: number;
@@ -75,17 +75,26 @@ const Notes: React.FC = () => {
 
   const loadNotes = async () => {
     setLoading(true);
+    const token = getToken();
+    
+    if (!token) {
+      console.log('No token found, redirecting to login');
+      window.location.href = '/#/login';
+      return;
+    }
+    
     try {
       const response = await fetch(`${API_BASE_URL}/api/notes/my-notes`, {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${getToken()}`,
+          'Authorization': `Bearer ${token}`,
         },
       });
 
       if (!response.ok) {
         if (response.status === 401) {
+          console.log('401 Unauthorized, clearing session');
           localStorage.removeItem('token');
           localStorage.removeItem('user');
           window.location.href = '/#/login';
@@ -97,7 +106,13 @@ const Notes: React.FC = () => {
       const data = await response.json();
       setNotes(data || []);
     } catch (error: any) {
-      toast.error(error.message || 'Erreur lors du chargement des notes');
+      console.error('Error loading notes:', error);
+      // Don't redirect on network errors, just show the error
+      if (error.name !== 'TypeError') {
+        toast.error(error.message || 'Erreur lors du chargement des notes');
+      } else {
+        toast.error('Impossible de se connecter au serveur');
+      }
       setNotes([]);
     } finally {
       setLoading(false);

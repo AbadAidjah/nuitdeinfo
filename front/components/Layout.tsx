@@ -4,11 +4,12 @@ import { Menu, X, Home, Users, LogOut, FileText, Bot, Settings, User as UserIcon
 import { motion } from 'framer-motion';
 import toast from 'react-hot-toast';
 
-import { StorageService } from '../services/storage';
 import { User, UserRole } from '../types';
 import Modal from './Modal';
 import Input from './Input';
 import Button from './Button';
+
+const API_BASE_URL = '';
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -30,12 +31,23 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
   });
 
   useEffect(() => {
-    const user = StorageService.getCurrentUser();
-    setCurrentUser(user);
+    // Read user from localStorage
+    const userJson = localStorage.getItem('user');
+    if (userJson) {
+      try {
+        const user = JSON.parse(userJson) as User;
+        setCurrentUser(user);
+      } catch (e) {
+        console.error('Failed to parse user from localStorage');
+        setCurrentUser(null);
+      }
+    }
   }, []);
 
   const handleLogout = () => {
-    StorageService.logout();
+    localStorage.removeItem('token');
+    localStorage.removeItem('user');
+    setCurrentUser(null);
     navigate('/login');
     toast.success("Vous avez été déconnecté.");
   };
@@ -52,7 +64,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
     }
   };
 
-  const handleUpdateProfile = () => {
+  const handleUpdateProfile = async () => {
     if (!currentUser) return;
     if (!profileForm.username || !profileForm.email) {
       toast.error("Nom d'utilisateur et email requis.");
@@ -64,35 +76,58 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
     }
 
     try {
-        // Prepare updated user object
-        // We need to fetch the full user object including current password if we want to keep it
-        // But here we are updating. StorageService.updateUser replaces the entry.
-        // We need to pass the password if changed, or the old one if not.
-        
-        const allUsers = StorageService.getUsers();
-        const existingUser = allUsers.find(u => u.id === currentUser.id);
-        
-        if (!existingUser) {
-            toast.error("Utilisateur introuvable.");
-            return;
-        }
+      const token = localStorage.getItem('token');
+      if (!token) {
+        toast.error("Session expirée. Veuillez vous reconnecter.");
+        handleLogout();
+        return;
+      }
 
-        const updatedUser: User = {
-            ...existingUser,
-            username: profileForm.username,
-            email: profileForm.email,
-            ...(profileForm.password ? { password: profileForm.password } : {})
-        };
+      const updateData: any = {
+        username: profileForm.username,
+        email: profileForm.email
+      };
+      
+      if (profileForm.password) {
+        updateData.password = profileForm.password;
+      }
 
-        StorageService.updateUser(updatedUser);
-        
-        // Update local state
-        setCurrentUser(StorageService.getCurrentUser());
-        
-        toast.success("Profil mis à jour avec succès !");
-        setIsProfileOpen(false);
-    } catch (e) {
-        toast.error("Erreur lors de la mise à jour.");
+      const response = await fetch(`${API_BASE_URL}/auth/profile`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify(updateData)
+      });
+
+      if (!response.ok) {
+        const errorData = await response.text();
+        throw new Error(errorData || 'Erreur lors de la mise à jour');
+      }
+
+      const data = await response.json();
+      
+      // Update localStorage and state with properly formatted user
+      const updatedUser: User = {
+        id: String(data.id),
+        username: data.username,
+        email: data.email,
+        role: data.role as UserRole
+      };
+      
+      // If token was returned (username changed), update it
+      if (data.token) {
+        localStorage.setItem('token', data.token);
+      }
+      
+      localStorage.setItem('user', JSON.stringify(updatedUser));
+      setCurrentUser(updatedUser);
+      
+      toast.success("Profil mis à jour avec succès !");
+      setIsProfileOpen(false);
+    } catch (e: any) {
+      toast.error(e.message || "Erreur lors de la mise à jour.");
     }
   };
 

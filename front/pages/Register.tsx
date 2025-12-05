@@ -6,7 +6,7 @@ import toast from 'react-hot-toast';
 import Input from '../components/Input';
 import Button from '../components/Button';
 
-const API_BASE_URL = 'http://localhost:8081';
+const API_BASE_URL = '';
 
 const Register: React.FC = () => {
   const [firstName, setFirstName] = useState('');
@@ -56,7 +56,12 @@ const Register: React.FC = () => {
 
       // Save token and user info
       localStorage.setItem('token', data.token);
-      localStorage.setItem('user', JSON.stringify(data));
+      localStorage.setItem('user', JSON.stringify({
+        id: String(data.id),
+        username: data.username,
+        email: data.email,
+        role: data.role
+      }));
 
       toast.success("Compte créé avec succès !");
       navigate('/notes');

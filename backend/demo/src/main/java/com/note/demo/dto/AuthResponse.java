@@ -1,5 +1,7 @@
 package com.note.demo.dto;
 
+import com.note.demo.model.Role;
+
 public class AuthResponse {
     private String token;
     private String type = "Bearer";
@@ -8,16 +10,18 @@ public class AuthResponse {
     private String email;
     private String firstName;
     private String lastName;
+    private Role role;
 
     public AuthResponse() {}
 
-    public AuthResponse(String token, Long id, String username, String email, String firstName, String lastName) {
+    public AuthResponse(String token, Long id, String username, String email, String firstName, String lastName, Role role) {
         this.token = token;
         this.id = id;
         this.username = username;
         this.email = email;
         this.firstName = firstName;
         this.lastName = lastName;
+        this.role = role;
     }
 
     public String getToken() {
@@ -74,5 +78,13 @@ public class AuthResponse {
 
     public void setLastName(String lastName) {
         this.lastName = lastName;
+    }
+
+    public Role getRole() {
+        return role;
+    }
+
+    public void setRole(Role role) {
+        this.role = role;
     }
 }
