@@ -5,12 +5,19 @@ import Login from './pages/Login';
 import Register from './pages/Register';
 import Notes from './pages/Notes';
 import Users from './pages/Users';
-import { StorageService } from './services/storage';
 
 const ProtectedRoute: React.FC<{ children: React.ReactElement }> = ({ children }) => {
-  const user = StorageService.getCurrentUser();
-  if (!user) {
+  const token = localStorage.getItem('token');
+  if (!token) {
     return <Navigate to="/login" replace />;
+  }
+  return children;
+};
+
+const PublicRoute: React.FC<{ children: React.ReactElement }> = ({ children }) => {
+  const token = localStorage.getItem('token');
+  if (token) {
+    return <Navigate to="/notes" replace />;
   }
   return children;
 };
@@ -21,8 +28,16 @@ const App: React.FC = () => {
       <Toaster position="top-right" toastOptions={{ duration: 3000 }} />
       <HashRouter>
         <Routes>
-          <Route path="/login" element={<Login />} />
-          <Route path="/register" element={<Register />} />
+          <Route path="/login" element={
+            <PublicRoute>
+              <Login />
+            </PublicRoute>
+          } />
+          <Route path="/register" element={
+            <PublicRoute>
+              <Register />
+            </PublicRoute>
+          } />
           
           <Route 
             path="/notes" 

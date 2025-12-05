@@ -42,15 +42,17 @@ const Login: React.FC = () => {
 
       toast.success(`Bon retour, ${data.firstName || data.username} !`);
       
-      // Redirect based on role
-      if (data.role === 'ADMIN') {
-        navigate('/admin');
-      } else {
-        navigate('/notes');
-      }
+      // Use setTimeout to ensure state is saved before navigation
+      setTimeout(() => {
+        if (data.role === 'ADMIN') {
+          navigate('/admin', { replace: true });
+        } else {
+          navigate('/notes', { replace: true });
+        }
+      }, 100);
+      
     } catch (err: any) {
       toast.error(err.message || 'Email ou mot de passe incorrect.');
-    } finally {
       setLoading(false);
     }
   };

@@ -7,14 +7,30 @@ import Layout from '../components/Layout';
 import Button from '../components/Button';
 import Input from '../components/Input';
 import Modal from '../components/Modal';
-import { StorageService } from '../services/storage';
 import { GeminiService } from '../services/geminiService';
-import { Note, UserRole } from '../types';
+
+const API_BASE_URL = 'http://localhost:8081';
+
+interface Note {
+  id: number;
+  title: string;
+  content: string;
+  created_at: string;
+}
+
+interface User {
+  id: number;
+  username: string;
+  firstName: string;
+  lastName: string;
+  role: string;
+}
 
 const Notes: React.FC = () => {
   const [notes, setNotes] = useState<Note[]>([]);
   const [filteredNotes, setFilteredNotes] = useState<Note[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
+  const [loading, setLoading] = useState(true);
   
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingNote, setEditingNote] = useState<Note | null>(null);
@@ -22,11 +38,21 @@ const Notes: React.FC = () => {
   // Form State
   const [title, setTitle] = useState('');
   const [content, setContent] = useState('');
+  const [saving, setSaving] = useState(false);
   
   // AI State
   const [isGenerating, setIsGenerating] = useState(false);
 
-  const currentUser = StorageService.getCurrentUser();
+  const getToken = (): string | null => {
+    return localStorage.getItem('token');
+  };
+
+  const getCurrentUser = (): User | null => {
+    const user = localStorage.getItem('user');
+    return user ? JSON.parse(user) : null;
+  };
+
+  const currentUser = getCurrentUser();
 
   useEffect(() => {
     loadNotes();
@@ -41,18 +67,40 @@ const Notes: React.FC = () => {
         notes.filter(
           (n) =>
             n.title.toLowerCase().includes(lowerQuery) ||
-            n.content.toLowerCase().includes(lowerQuery)
+            (n.content && n.content.toLowerCase().includes(lowerQuery))
         )
       );
     }
   }, [searchQuery, notes]);
 
-  const loadNotes = () => {
-    const allNotes = StorageService.getNotes();
-    if (currentUser?.role === UserRole.ADMIN) {
-        setNotes(allNotes);
-    } else {
-        setNotes(allNotes.filter(n => n.userId === currentUser?.id));
+  const loadNotes = async () => {
+    setLoading(true);
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/notes/my-notes`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${getToken()}`,
+        },
+      });
+
+      if (!response.ok) {
+        if (response.status === 401) {
+          localStorage.removeItem('token');
+          localStorage.removeItem('user');
+          window.location.href = '/#/login';
+          return;
+        }
+        throw new Error('Failed to load notes');
+      }
+
+      const data = await response.json();
+      setNotes(data || []);
+    } catch (error: any) {
+      toast.error(error.message || 'Erreur lors du chargement des notes');
+      setNotes([]);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -60,7 +108,7 @@ const Notes: React.FC = () => {
     if (note) {
       setEditingNote(note);
       setTitle(note.title);
-      setContent(note.content);
+      setContent(note.content || '');
     } else {
       setEditingNote(null);
       setTitle('');
@@ -72,58 +120,124 @@ const Notes: React.FC = () => {
   const handleCloseModal = () => {
     setIsModalOpen(false);
     setTimeout(() => {
-        setEditingNote(null);
-        setTitle('');
-        setContent('');
-    }, 300); // Wait for animation
+      setEditingNote(null);
+      setTitle('');
+      setContent('');
+    }, 300);
   };
 
-  const handleSave = () => {
-    if (!title.trim() || !currentUser) {
-        toast.error("Le titre est obligatoire");
-        return;
+  const handleSave = async () => {
+    if (!title.trim()) {
+      toast.error("Le titre est obligatoire");
+      return;
     }
 
-    StorageService.saveNote({
-      id: editingNote?.id,
-      userId: editingNote ? editingNote.userId : currentUser.id,
-      title,
-      content
-    });
-    
-    loadNotes();
-    handleCloseModal();
-    toast.success(editingNote ? "Note modifiée !" : "Note créée !");
+    // Content is required by backend
+    const noteContent = content.trim() || 'Note sans contenu';
+
+    setSaving(true);
+
+    try {
+      let response;
+
+      if (editingNote) {
+        // Update existing note
+        response = await fetch(`${API_BASE_URL}/api/notes/update/${editingNote.id}`, {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${getToken()}`,
+          },
+          body: JSON.stringify({ 
+            title: title.trim(), 
+            content: noteContent 
+          }),
+        });
+      } else {
+        // Create new note
+        response = await fetch(`${API_BASE_URL}/api/notes/create/`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${getToken()}`,
+          },
+          body: JSON.stringify({ 
+            title: title.trim(), 
+            content: noteContent 
+          }),
+        });
+      }
+
+      if (!response.ok) {
+        const errorData = await response.text();
+        throw new Error(errorData || 'Erreur lors de la sauvegarde');
+      }
+
+      await loadNotes();
+      handleCloseModal();
+      toast.success(editingNote ? "Note modifiée !" : "Note créée !");
+    } catch (error: any) {
+      toast.error(error.message || "Erreur lors de la sauvegarde");
+    } finally {
+      setSaving(false);
+    }
   };
 
-  const handleDelete = (id: string) => {
+  const handleDelete = async (id: number) => {
     if (window.confirm("Êtes-vous sûr de vouloir supprimer cette note ?")) {
-      StorageService.deleteNote(id);
-      loadNotes();
-      toast.success("Note supprimée");
+      try {
+        const response = await fetch(`${API_BASE_URL}/api/notes/delete/${id}`, {
+          method: 'DELETE',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${getToken()}`,
+          },
+        });
+
+        if (!response.ok) {
+          throw new Error('Erreur lors de la suppression');
+        }
+
+        await loadNotes();
+        toast.success("Note supprimée");
+      } catch (error: any) {
+        toast.error(error.message || "Erreur lors de la suppression");
+      }
     }
   };
 
   const handleGenerateAI = async () => {
     if (!title) {
-        toast.error("Veuillez entrer un titre pour l'IA");
-        return;
+      toast.error("Veuillez entrer un titre pour l'IA");
+      return;
     }
     setIsGenerating(true);
     const loadingToast = toast.loading("Génération en cours avec Gemini...");
     
     try {
-        const prompt = content ? `Améliore cette note qui parle de : ${title}. Contenu actuel : ${content}` : `Écris une note complète à propos de : ${title}`;
-        const generated = await GeminiService.generateNoteContent(prompt);
-        setContent(generated);
-        toast.success("Contenu généré !");
+      const prompt = content 
+        ? `Améliore cette note qui parle de : ${title}. Contenu actuel : ${content}` 
+        : `Écris une note complète à propos de : ${title}`;
+      const generated = await GeminiService.generateNoteContent(prompt);
+      setContent(generated);
+      toast.success("Contenu généré !");
     } catch (error) {
-        toast.error("Erreur API Gemini");
+      toast.error("Erreur API Gemini");
     } finally {
-        setIsGenerating(false);
-        toast.dismiss(loadingToast);
+      setIsGenerating(false);
+      toast.dismiss(loadingToast);
     }
   };
+
+  if (loading) {
+    return (
+      <Layout>
+        <div className="flex items-center justify-center h-64">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600"></div>
+        </div>
+      </Layout>
+    );
+  }
 
   return (
     <Layout>
@@ -189,27 +303,27 @@ const Notes: React.FC = () => {
                   </p>
                 </div>
                 <div className="px-6 py-4 bg-gray-50/50 border-t border-gray-100 flex justify-between items-center rounded-b-xl">
-                    <span className="text-xs font-medium text-gray-400">
-                        {new Date(note.updatedAt).toLocaleDateString('fr-FR', {
-                            day: 'numeric', month: 'short'
-                        })}
-                    </span>
-                    <div className="flex space-x-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                        <button 
-                        onClick={() => handleOpenModal(note)}
-                        className="p-2 text-gray-500 hover:text-indigo-600 hover:bg-indigo-50 rounded-full transition-colors"
-                        title="Modifier"
-                        >
-                        <Edit2 className="w-4 h-4" />
-                        </button>
-                        <button 
-                        onClick={() => handleDelete(note.id)}
-                        className="p-2 text-gray-500 hover:text-red-600 hover:bg-red-50 rounded-full transition-colors"
-                        title="Supprimer"
-                        >
-                        <Trash2 className="w-4 h-4" />
-                        </button>
-                    </div>
+                  <span className="text-xs font-medium text-gray-400">
+                    {note.created_at ? new Date(note.created_at).toLocaleDateString('fr-FR', {
+                      day: 'numeric', month: 'short'
+                    }) : 'Aujourd\'hui'}
+                  </span>
+                  <div className="flex space-x-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <button 
+                      onClick={(e) => { e.stopPropagation(); handleOpenModal(note); }}
+                      className="p-2 text-gray-500 hover:text-indigo-600 hover:bg-indigo-50 rounded-full transition-colors"
+                      title="Modifier"
+                    >
+                      <Edit2 className="w-4 h-4" />
+                    </button>
+                    <button 
+                      onClick={(e) => { e.stopPropagation(); handleDelete(note.id); }}
+                      className="p-2 text-gray-500 hover:text-red-600 hover:bg-red-50 rounded-full transition-colors"
+                      title="Supprimer"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  </div>
                 </div>
               </motion.div>
             ))}
@@ -217,49 +331,48 @@ const Notes: React.FC = () => {
         </motion.div>
       )}
 
-      {/* Modal is now generic and separate */}
       <Modal
         isOpen={isModalOpen}
         onClose={handleCloseModal}
         title={editingNote ? 'Modifier la note' : 'Nouvelle note'}
         footer={
-            <>
-                <Button variant="ghost" onClick={handleCloseModal}>Annuler</Button>
-                <Button onClick={handleSave} icon={<Save className="w-4 h-4" />}>Enregistrer</Button>
-            </>
+          <>
+            <Button variant="ghost" onClick={handleCloseModal}>Annuler</Button>
+            <Button onClick={handleSave} icon={<Save className="w-4 h-4" />} isLoading={saving}>Enregistrer</Button>
+          </>
         }
       >
         <div className="space-y-4">
-            <Input 
-                placeholder="Titre de la note" 
-                value={title} 
-                onChange={(e) => setTitle(e.target.value)}
-                className="text-lg font-bold border-none px-0 shadow-none focus:ring-0 placeholder:text-gray-300 text-gray-900"
-                autoFocus
-            />
+          <Input 
+            placeholder="Titre de la note" 
+            value={title} 
+            onChange={(e) => setTitle(e.target.value)}
+            className="text-lg font-bold border-none px-0 shadow-none focus:ring-0 placeholder:text-gray-300 text-gray-900"
+            autoFocus
+          />
+          
+          <div className="relative">
+            <textarea
+              className="w-full h-80 p-4 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:bg-white transition-all resize-none text-gray-700 leading-relaxed"
+              placeholder="Écrivez votre note ici..."
+              value={content}
+              onChange={(e) => setContent(e.target.value)}
+            ></textarea>
             
-            <div className="relative">
-                <textarea
-                    className="w-full h-80 p-4 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:bg-white transition-all resize-none text-gray-700 leading-relaxed"
-                    placeholder="Écrivez votre note ici..."
-                    value={content}
-                    onChange={(e) => setContent(e.target.value)}
-                ></textarea>
-                
-                <div className="absolute bottom-4 right-4 z-10">
-                    <Button 
-                        type="button" 
-                        variant="secondary" 
-                        size="sm" 
-                        className="text-xs shadow-md bg-white hover:bg-purple-50 border-purple-100 text-purple-700"
-                        onClick={handleGenerateAI}
-                        isLoading={isGenerating}
-                        icon={<Sparkles className="w-3 h-3 text-purple-600" />}
-                    >
-                        IA
-                    </Button>
-                </div>
+            <div className="absolute bottom-4 right-4 z-10">
+              <Button 
+                type="button" 
+                variant="secondary" 
+                size="sm" 
+                className="text-xs shadow-md bg-white hover:bg-purple-50 border-purple-100 text-purple-700"
+                onClick={handleGenerateAI}
+                isLoading={isGenerating}
+                icon={<Sparkles className="w-3 h-3 text-purple-600" />}
+              >
+                IA
+              </Button>
             </div>
+          </div>
         </div>
       </Modal>
     </Layout>
