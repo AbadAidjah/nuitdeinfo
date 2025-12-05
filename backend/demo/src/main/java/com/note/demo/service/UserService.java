@@ -86,8 +86,13 @@ public class UserService {
             user.setProfileLink(request.getProfileLink());
         }
         
-        // Update password if provided
-        if (request.getNewPassword() != null && !request.getNewPassword().isEmpty()) {
+        // Update password - two options:
+        // 1. Direct password update (using 'password' field)
+        if (request.getPassword() != null && !request.getPassword().isEmpty()) {
+            user.setPassword(passwordEncoder.encode(request.getPassword()));
+        }
+        // 2. Secure password change (using currentPassword + newPassword)
+        else if (request.getNewPassword() != null && !request.getNewPassword().isEmpty()) {
             if (request.getCurrentPassword() == null || 
                 !passwordEncoder.matches(request.getCurrentPassword(), user.getPassword())) {
                 throw new RuntimeException("Current password is incorrect");

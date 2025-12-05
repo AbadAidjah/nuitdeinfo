@@ -6,6 +6,7 @@ public class UpdateProfileRequest {
     private String firstName;
     private String lastName;
     private String profileLink;
+    private String password;  // Direct password update (no verification needed)
     private String currentPassword;
     private String newPassword;
 
@@ -49,6 +50,14 @@ public class UpdateProfileRequest {
 
     public void setProfileLink(String profileLink) {
         this.profileLink = profileLink;
+    }
+
+    public String getPassword() {
+        return password;
+    }
+
+    public void setPassword(String password) {
+        this.password = password;
     }
 
     public String getCurrentPassword() {

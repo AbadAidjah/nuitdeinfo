@@ -30,16 +30,7 @@ const Login: React.FC = () => {
         }),
       });
 
-      // Get response text first
-      const text = await response.text();
-      
-      // Try to parse as JSON
-      let data;
-      try {
-        data = JSON.parse(text);
-      } catch {
-        throw new Error('Erreur serveur. Veuillez réessayer.');
-      }
+      const data = await response.json();
 
       if (!response.ok) {
         throw new Error(data.error || 'Identifiants incorrects');
