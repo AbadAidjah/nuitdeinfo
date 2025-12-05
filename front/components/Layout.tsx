@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { NavLink, useNavigate, useLocation } from 'react-router-dom';
-import { Menu, X, Home, Users, LogOut, FileText, Bot, Settings, User as UserIcon, Lock, Mail } from 'lucide-react';
+import { Menu, X, Home, Users, LogOut, FileText, Bot, Settings, User as UserIcon, Lock, Mail, Link as LinkIcon } from 'lucide-react';
 import { motion } from 'framer-motion';
 import toast from 'react-hot-toast';
 
@@ -23,9 +23,13 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
 
   // Profile Modal State
   const [isProfileOpen, setIsProfileOpen] = useState(false);
+  const [saving, setSaving] = useState(false);
   const [profileForm, setProfileForm] = useState({
     username: '',
     email: '',
+    firstName: '',
+    lastName: '',
+    profileLink: '',
     password: '',
     confirmPassword: ''
   });
@@ -55,8 +59,11 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
   const handleOpenProfile = () => {
     if (currentUser) {
       setProfileForm({
-        username: currentUser.username,
-        email: currentUser.email,
+        username: currentUser.username || '',
+        email: currentUser.email || '',
+        firstName: (currentUser as any).firstName || '',
+        lastName: (currentUser as any).lastName || '',
+        profileLink: (currentUser as any).profileLink || '',
         password: '',
         confirmPassword: ''
       });
@@ -75,6 +82,8 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
       return;
     }
 
+    setSaving(true);
+
     try {
       const token = localStorage.getItem('token');
       if (!token) {
@@ -85,10 +94,14 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
 
       const updateData: any = {
         username: profileForm.username,
-        email: profileForm.email
+        email: profileForm.email,
+        firstName: profileForm.firstName,
+        lastName: profileForm.lastName,
+        profileLink: profileForm.profileLink
       };
       
-      if (profileForm.password) {
+      // Only include password if provided
+      if (profileForm.password && profileForm.password.trim() !== '') {
         updateData.password = profileForm.password;
       }
 
@@ -102,32 +115,37 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
       });
 
       if (!response.ok) {
-        const errorData = await response.text();
-        throw new Error(errorData || 'Erreur lors de la mise à jour');
+        const errorData = await response.json().catch(() => ({ error: 'Erreur lors de la mise à jour' }));
+        throw new Error(errorData.error || 'Erreur lors de la mise à jour');
       }
 
       const data = await response.json();
       
-      // Update localStorage and state with properly formatted user
-      const updatedUser: User = {
+      // Update localStorage and state with all user fields
+      const updatedUser: User & { firstName?: string; lastName?: string; profileLink?: string } = {
         id: String(data.id),
         username: data.username,
         email: data.email,
+        firstName: data.firstName,
+        lastName: data.lastName,
+        profileLink: data.profileLink,
         role: data.role as UserRole
       };
       
-      // If token was returned (username changed), update it
+      // Always update token (new one is always returned)
       if (data.token) {
         localStorage.setItem('token', data.token);
       }
       
       localStorage.setItem('user', JSON.stringify(updatedUser));
-      setCurrentUser(updatedUser);
+      setCurrentUser(updatedUser as User);
       
       toast.success("Profil mis à jour avec succès !");
       setIsProfileOpen(false);
     } catch (e: any) {
       toast.error(e.message || "Erreur lors de la mise à jour.");
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -137,6 +155,22 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
       ? [{ name: 'Utilisateurs', path: '/users', icon: <Users className="w-5 h-5" /> }] 
       : []),
   ];
+
+  const getDisplayName = () => {
+    const user = currentUser as any;
+    if (user?.firstName && user?.lastName) {
+      return `${user.firstName} ${user.lastName}`;
+    }
+    return currentUser?.username || '';
+  };
+
+  const getInitials = () => {
+    const user = currentUser as any;
+    if (user?.firstName && user?.lastName) {
+      return `${user.firstName.charAt(0)}${user.lastName.charAt(0)}`.toUpperCase();
+    }
+    return currentUser?.username?.charAt(0).toUpperCase() || '?';
+  };
 
   return (
     <div className="min-h-screen bg-gray-100 flex">
@@ -189,14 +223,14 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
             >
               <div className="flex-shrink-0 relative">
                  <div className="w-10 h-10 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-600 font-bold text-lg">
-                    {currentUser?.username.charAt(0).toUpperCase()}
+                    {getInitials()}
                  </div>
                  <div className="absolute -bottom-1 -right-1 bg-white rounded-full p-0.5 shadow-sm opacity-0 group-hover:opacity-100 transition-opacity">
                     <Settings className="w-3 h-3 text-gray-500" />
                  </div>
               </div>
               <div className="ml-3 min-w-0 flex-1">
-                <p className="text-sm font-medium text-gray-700 truncate">{currentUser?.username}</p>
+                <p className="text-sm font-medium text-gray-700 truncate">{getDisplayName()}</p>
                 <p className="text-xs text-gray-500 truncate">{currentUser?.email}</p>
               </div>
             </div>
@@ -242,15 +276,35 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
         footer={
             <>
                 <Button variant="ghost" onClick={() => setIsProfileOpen(false)}>Annuler</Button>
-                <Button onClick={handleUpdateProfile}>Enregistrer</Button>
+                <Button onClick={handleUpdateProfile} isLoading={saving}>Enregistrer</Button>
             </>
         }
       >
         <div className="space-y-5">
             <div className="flex justify-center mb-6">
                 <div className="h-20 w-20 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-600 text-3xl font-bold shadow-inner">
-                    {profileForm.username.charAt(0).toUpperCase() || '?'}
+                    {profileForm.firstName && profileForm.lastName 
+                      ? `${profileForm.firstName.charAt(0)}${profileForm.lastName.charAt(0)}`.toUpperCase()
+                      : profileForm.username.charAt(0).toUpperCase() || '?'
+                    }
                 </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+                <Input
+                    label="Prénom"
+                    icon={<UserIcon className="w-4 h-4" />}
+                    value={profileForm.firstName}
+                    onChange={(e) => setProfileForm({ ...profileForm, firstName: e.target.value })}
+                    placeholder="Jean"
+                />
+                <Input
+                    label="Nom"
+                    icon={<UserIcon className="w-4 h-4" />}
+                    value={profileForm.lastName}
+                    onChange={(e) => setProfileForm({ ...profileForm, lastName: e.target.value })}
+                    placeholder="Dupont"
+                />
             </div>
 
             <Input
@@ -266,6 +320,14 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
                 icon={<Mail className="w-4 h-4" />}
                 value={profileForm.email}
                 onChange={(e) => setProfileForm({ ...profileForm, email: e.target.value })}
+            />
+
+            <Input
+                label="Lien de profil (optionnel)"
+                icon={<LinkIcon className="w-4 h-4" />}
+                value={profileForm.profileLink}
+                onChange={(e) => setProfileForm({ ...profileForm, profileLink: e.target.value })}
+                placeholder="https://github.com/username"
             />
 
             <div className="border-t border-gray-100 pt-4 mt-4">
@@ -292,7 +354,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
             
              <div className="flex items-center justify-between text-xs text-gray-400 mt-2">
                 <span>Rôle: <span className="font-medium text-gray-600">{currentUser?.role}</span></span>
-                <span>ID: {currentUser?.id.slice(0, 8)}...</span>
+                <span>ID: {currentUser?.id?.toString().slice(0, 8)}...</span>
              </div>
 
              <div className="border-t border-gray-100 pt-4 mt-4">
